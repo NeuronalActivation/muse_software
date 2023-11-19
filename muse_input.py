@@ -1,14 +1,17 @@
 import pylsl
 import numpy as np
+import serial
 import time
 import matplotlib.pyplot as plt
 import scipy as sp
-
+from plotting_functions import plot_fourier, plot_compare, plot
 
 def main():
     streams = pylsl.resolve_stream('name', 'PetalStream_eeg')
     inlet = pylsl.StreamInlet(streams[0])
     sample, timestamp_0 = inlet.pull_sample()
+    ser = serial.Serial('COM5')
+    time.sleep(2)
 
     #loop than runs for a second
     while True:
@@ -24,7 +27,7 @@ def main():
             x.append(timestamp)
 
 
-        print("Before smoothing")
+       # print("Before smoothing")
         #plot(x, channel_1, channel_2, channel_3, channel_4)
 
         #smooth the data
@@ -32,56 +35,49 @@ def main():
         smoothed_channel_2 = smooth_eeg(channel_2)
         smoothed_channel_3 = smooth_eeg(channel_3)
         smoothed_channel_4 = smooth_eeg(channel_4)
-
-        #plot the smoothed data
-        # plot_compare(channel_1,smoothed_channel_1)
-        # plot_compare(channel_2,smoothed_channel_2)
-        # plot_compare(channel_3,smoothed_channel_3)
-        # plot_compare(channel_4,smoothed_channel_4)
-        print("After smoothing")
-        #plot(x, smoothed_channel_1, smoothed_channel_2, smoothed_channel_3, smoothed_channel_4)
-
         #fourier transform  
-        plotFreq_1, plotMag_1 = fourier(channel_1)
-        plotFreq_2, plotMag_2 = fourier(channel_2)
-        plotFreq_3, plotMag_3 = fourier(channel_3)
-        plotFreq_4, plotMag_4 = fourier(channel_4)
+        plotFreq_1, plotMag_1 = fourier(smoothed_channel_1)
+        plotFreq_2, plotMag_2 = fourier(smoothed_channel_2)
+        plotFreq_3, plotMag_3 = fourier(smoothed_channel_3)
+        plotFreq_4, plotMag_4 = fourier(smoothed_channel_4)    
 
-    
+        # ratio = get_beta_alpha_ratio(plotFreq_1, plotMag_1, plotFreq_2, plotMag_2, plotFreq_3, plotMag_3, plotFreq_4, plotMag_4)
+        # print("ratio", ratio)  
 
-        #plot(x, channel_1, channel_2, channel_3, channel_4, channel_5)
-    
+        ratio_1 = get_beta_alpha_ratio(plotFreq_1, plotMag_1)
+        ratio_2 = get_beta_alpha_ratio(plotFreq_2, plotMag_2)
+        ratio_3 = get_beta_alpha_ratio(plotFreq_3, plotMag_3)
+        ratio_4 = get_beta_alpha_ratio(plotFreq_4, plotMag_4)
 
-        print(len(plotFreq_1))
-        print(len(plotMag_1))
-        #get mean of all frequencies
-       
+        ratio = (ratio_1 + ratio_2 + ratio_3 + ratio_4)/4
+        print("ratio", ratio)
 
-        #get mean of all samples
-        # mean_1 = np.mean(channel_1)
-        # mean_2 = np.mean(channel_2)
-        # mean_3 = np.mean(channel_3)
-        # mean_4 = np.mean(channel_4)
-        # mean_5 = np.mean(channel_5)
+        if (ratio < 0.52):
+            ser.write(b'blue\n')
+        else:
+            ser.write(b'red\n')
+        
+        time.sleep(1)
+         
         
         # #plot fourier
-        plot_fourier(plotFreq_1, plotMag_1)
-        plot_fourier(plotFreq_2, plotMag_2)
-        plot_fourier(plotFreq_3, plotMag_3)
-        plot_fourier(plotFreq_4, plotMag_4)        
-        plt.show()
+        # plot_fourier(plotFreq_1, plotMag_1)
+        # plot_fourier(plotFreq_2, plotMag_2)
+        # plot_fourier(plotFreq_3, plotMag_3)
+        # plot_fourier(plotFreq_4, plotMag_4)        
+        # plt.show()
 
-        mean_1 = mean(plotFreq_1, plotMag_1)
-        mean_2 = mean(plotFreq_2, plotMag_2)
-        mean_3 = mean(plotFreq_3, plotMag_3)
-        mean_4 = mean(plotFreq_4, plotMag_4)
+        # mean_1 = mean(plotFreq_1, plotMag_1)
+        # mean_2 = mean(plotFreq_2, plotMag_2)
+        # mean_3 = mean(plotFreq_3, plotMag_3)
+        # mean_4 = mean(plotFreq_4, plotMag_4)
 
-        print("mean 1", mean_1)
-        print("mean 2", mean_2)
-        print("mean 3", mean_3)
-        print("mean 4", mean_4)
-        print("overall mean", (mean_1+mean_2+mean_3+mean_4)/4)
-        print(" ")
+        # print("mean 1", mean_1)
+        # print("mean 2", mean_2)
+        # print("mean 3", mean_3)
+        # print("mean 4", mean_4)
+        # print("overall mean", (mean_1+mean_2+mean_3+mean_4)/4)
+        # print(" ")
 
        
 
@@ -102,47 +98,31 @@ def fourier(channel):
 
     return plotFreq, plotMag
 
-def plot(x, channel_1, channel_2, channel_3, channel_4):
-    plt.plot(x, channel_1)
-    plt.plot(x, channel_2)
-    plt.plot(x, channel_3)
-    plt.plot(x, channel_4)
-
 def smooth_eeg(channel):
     # Smooth the data using a savgol filter
     smooth_channel = sp.signal.savgol_filter(channel, 51, 3)
     return smooth_channel
 
-def plot_compare(channel, smoothed_channel):
-    plt.figure()
-    plt.plot(channel, label="Original")
-    plt.plot(smoothed_channel, label="Smoothed")
-    plt.legend()
-    plt.show()
-
-def plot_fourier(plotFreq, plotMag):
-    isShowingBinLines = True
-
-# Create the plot
-
-    # Add the special spacing
-    if(isShowingBinLines):
-        subsets=[0, 4, 7.5, 12.5, 30]
-        plt.xticks(subsets)
-
-    # Add the vertical lines
-    if(isShowingBinLines):
-        plt.axvline(x=4, color="darkgrey")
-        plt.axvline(x=7.5, color="darkgrey")
-        plt.axvline(x=12.5, color="darkgrey")
-        plt.axvline(x=30, color="darkgrey")
-
-    # Plot
-    plt.margins(x=0)
-    plt.plot(plotFreq, plotMag)
-
 def mean(plotFreq, plotMag):
     return np.sum(plotFreq*plotMag)/np.sum(plotMag)
+
+def get_beta_alpha(plotFreq, plotMag):
+    eight = find_nearest(plotFreq, 8)
+    thirteen = find_nearest(plotFreq, 13)
+    thirty_two = find_nearest(plotFreq, 32)
+
+    alpha_lower = np.where(plotFreq == eight)[0][0]
+    alpha_upper = np.where(plotFreq == thirteen)[0][0]
+    beta_upper = np.where(plotFreq == thirty_two)[0][0]
+    alphaMag = plotMag[alpha_lower:alpha_upper]
+    betaMag = plotMag[alpha_upper:beta_upper]
+    alphaFreq = plotFreq[alpha_lower:alpha_upper]
+    betaFreq = plotFreq[alpha_upper:beta_upper]
+    return betaMag, betaFreq, alphaMag, alphaFreq
+
+def get_beta_alpha_ratio(plotFreq, plotMag):
+    betaMag, betaFreq, alphaMag, alphaFreq = get_beta_alpha(plotFreq, plotMag)
+    return mean(alphaFreq, alphaMag)/mean(betaFreq, betaMag)
 
 def find_nearest(array, value):
     array = np.asarray(array)
